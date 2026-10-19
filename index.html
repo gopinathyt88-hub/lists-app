@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LISTS</title>
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+#splash{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:50;transition:opacity .6s}
+#splash.out{opacity:0;pointer-events:none}
+#splash span{display:inline-block;font-size:56px;font-weight:800;letter-spacing:8px;opacity:0;transform:translateY(30px) scale(.8);animation:rise .7s cubic-bezier(.2,.9,.3,1.3) forwards}
+#splash span:nth-child(2){animation-delay:.12s}#splash span:nth-child(3){animation-delay:.24s}#splash span:nth-child(4){animation-delay:.36s}#splash span:nth-child(5){animation-delay:.48s}
+#bar{position:absolute;bottom:42%;left:50%;width:0;height:3px;background:#fff;border-radius:3px;transform:translateX(-50%);animation:grow 1.2s .6s ease-out forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes grow{to{width:140px}}
+#app{height:100%;display:flex;flex-direction:column}
+header{padding:20px 20px 8px;display:flex;justify-content:space-between;align-items:baseline}
+header h1{margin:0;font-size:28px;letter-spacing:4px}
+#count{color:#888;font-size:14px}
+#list{flex:1;overflow-y:auto;padding:8px 16px 110px;margin:0;list-style:none}
+.plate{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:14px 16px 14px 20px;margin-bottom:12px;border-radius:20px;color:#111;font-size:19px;font-weight:600;touch-action:pan-y;user-select:none;transition:transform .25s,opacity .25s;animation:pop .3s ease-out;word-break:break-word}
+@keyframes pop{from{opacity:0;transform:scale(.92)}}
+.chk{flex:none;width:34px;height:34px;border-radius:50%;border:3px solid #111;background:transparent;color:#111;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0}
+.chk:active{background:#111;color:#fff}
+#empty{text-align:center;color:#666;margin-top:20vh;font-size:17px;line-height:1.6}
+#fab{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);width:64px;height:64px;border-radius:50%;border:0;background:#fff;color:#000;font-size:38px;font-weight:300;box-shadow:0 0 0 6px #000,0 6px 24px rgba(255,255,255,.25);z-index:5}
+#fab:active{transform:translateX(-50%) scale(.92)}
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;z-index:20}
+#sheet.on{display:flex}
+#box{width:100%;background:#161616;border-radius:24px 24px 0 0;padding:20px 16px calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;gap:10px;animation:up .25s ease-out}
+@keyframes up{from{transform:translateY(100%)}}
+#inp{flex:1;min-width:0;background:#000;border:2px solid #333;border-radius:14px;color:#fff;font-size:18px;padding:14px;outline:none}
+#inp:focus{border-color:#fff}
+#add{border:0;border-radius:14px;background:#fff;color:#000;font-weight:700;font-size:16px;padding:0 20px}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 104px);background:#222;border-radius:14px;padding:12px 16px;display:none;justify-content:space-between;align-items:center;z-index:10}
+#toast.on{display:flex}
+#toast button{background:none;border:0;color:#4D96FF;font-weight:700;font-size:16px}
+</style></head><body>
+<div id="splash"><div><span>L</span><span>I</span><span>S</span><span>T</span><span>S</span></div><div id="bar"></div></div>
+<div id="app">
+<header><h1>LISTS</h1><span id="count"></span></header>
+<ul id="list"></ul>
+</div>
+<div id="toast"><span id="tmsg"></span><button id="undo">UNDO</button></div>
+<button id="fab" aria-label="Add item">+</button>
+<div id="sheet"><div id="box"><input id="inp" placeholder="What to buy?" autocomplete="off" enterkeyhint="done"><button id="add">Add</button></div></div>
+<script>
+const COLORS=["#FF5A5F","#FF9F1C","#FFD93D","#2EC4B6","#4D96FF","#B388FF","#F78FB3"];
+let items=[],next=0,last=null,tTimer;
+const $=id=>document.getElementById(id);
+function load(){try{const d=JSON.parse(localStorage.getItem("lists-v1")||"{}");items=d.items||[];next=d.next||0}catch(e){}}
+function save(){try{localStorage.setItem("lists-v1",JSON.stringify({items,next}))}catch(e){}}
+function buzz(){try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+function render(){
+  const ul=$("list");ul.innerHTML="";
+  $("count").textContent=items.length?items.length+(items.length===1?" item":" items"):"";
+  if(!items.length){ul.innerHTML='<div id="empty">Nothing to buy yet.<br>Tap + to add your first item.</div>';return}
+  items.forEach(it=>{
+    const li=document.createElement("li");li.className="plate";li.style.background=COLORS[it.c];
+    const s=document.createElement("span");s.textContent=it.t;
+    const b=document.createElement("button");b.className="chk";b.textContent="✓";b.setAttribute("aria-label","Done");
+    b.onclick=()=>remove(it.id,1,li);
+    li.append(s,b);swipe(li,it.id);ul.append(li);
+  });
+}
+function swipe(li,id){
+  let sx=0,dx=0,on=false;
+  li.addEventListener("pointerdown",e=>{if(e.target.closest(".chk"))return;on=true;sx=e.clientX;dx=0;li.setPointerCapture(e.pointerId);li.style.transition="none"});
+  li.addEventListener("pointermove",e=>{if(!on)return;dx=e.clientX-sx;li.style.transform="translateX("+dx+"px)";li.style.opacity=Math.max(.2,1-Math.abs(dx)/320)});
+  const end=()=>{if(!on)return;on=false;li.style.transition="";
+    if(Math.abs(dx)>90)remove(id,dx>0?1:-1,li);else{li.style.transform="";li.style.opacity=""}};
+  li.addEventListener("pointerup",end);li.addEventListener("pointercancel",end);
+}
+function remove(id,dir,li){
+  buzz();
+  li.style.transition="transform .25s,opacity .25s";li.style.transform="translateX("+dir*110+"%)";li.style.opacity="0";
+  setTimeout(()=>{
+    const i=items.findIndex(x=>x.id===id);if(i<0)return;
+    last={item:items[i],i};items.splice(i,1);save();render();toast("Removed “"+last.item.t+"”");
+  },230);
+}
+function toast(m){$("tmsg").textContent=m;$("toast").classList.add("on");clearTimeout(tTimer);tTimer=setTimeout(()=>$("toast").classList.remove("on"),4000)}
+$("undo").onclick=()=>{if(!last)return;items.splice(Math.min(last.i,items.length),0,last.item);last=null;save();render();$("toast").classList.remove("on")};
+function openSheet(){$("sheet").classList.add("on");setTimeout(()=>$("inp").focus(),50)}
+function closeSheet(){$("sheet").classList.remove("on");$("inp").blur()}
+function addItem(){
+  const v=$("inp").value.trim();if(!v)return;
+  items.push({id:Date.now()+Math.random(),t:v,c:next%COLORS.length});next++;save();render();
+  $("inp").value="";$("inp").focus();buzz();
+  const l=$("list");l.scrollTop=l.scrollHeight;
+}
+$("fab").onclick=openSheet;
+$("add").onclick=addItem;
+$("inp").addEventListener("keydown",e=>{if(e.key==="Enter")addItem()});
+$("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+load();render();
+setTimeout(()=>{$("splash").classList.add("out");setTimeout(()=>$("splash").remove(),700)},2200);
+</script></body></html>
